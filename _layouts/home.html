@@ -63,17 +63,20 @@ layout: default
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
 <script>
+
     function splits(params) {
         const arr=params.split(".");
         return arr[arr.length-1];
     }
+
     function name_splits(params) {
         const arr=params.split("/");
         return arr[arr.length-1];
     }
+
     let container=document.getElementById('container');
     let input=document.getElementById('upload');
-    var $result = $("#container");
+
     container.addEventListener("dragover",function(evt){
         evt.preventDefault();
     });
@@ -85,7 +88,7 @@ layout: default
         input.files=evt.dataTransfer.files;
         if(splits(input.files[0].name)=="zip")
         {
-            var event = new Event('change');
+            let event = new Event('change');
             input.dispatchEvent(event);
         }
         else
@@ -103,50 +106,67 @@ layout: default
         da.classList.add('download');
         da.appendChild(tn);
         document.getElementById('body').appendChild(da);
-        let List=document.createElement("ul");
-        let myList=document.createElement("ul");
-        let files = evt.target.files[0];
-        let title=document.createElement("li");
-        let title_text=document.createTextNode(files.name);
         let tempo={};
-        tempo[files.name]="#";
-        title.appendChild(title_text);
-        title.appendChild(myList);
-        List.appendChild(title);
-        container.appendChild(List);
+        let directory=[];
         JSZip.loadAsync(f)                                  
         .then(function(zip) {
             zip.forEach(function (relativePath, zipEntry) {  
-                if(zipEntry.dir)
+
+                let temp={};
+                const arr=(zipEntry.name).split("/");
+
+                if(zipEntry.name===arr[0])
                 {
-                    let fname=document.createTextNode(zipEntry.name);
-                    let list_item=document.createElement('li');
-                    list_item.appendChild(fname);
-                    myList.appendChild(list_item);
-                    myList=myList.lastChild;
-                    myList.appendChild(document.createElement('ul'));
-                    myList=myList.lastChild;
-                    tempo[relativePath]="#";
-                    return;
+                    temp["id"]=zipEntry.name;
+                    temp["parent"]="#";
+                    temp["text"]=zipEntry.name;
+                    zip.file(relativePath).async("blob").then(function(data) {
+                        tempo[zipEntry.name]=window.URL.createObjectURL(data);
+                    });
                 }
-                let fname=document.createTextNode(name_splits(zipEntry.name));
-                let list_item=document.createElement('li');
-                let list_item_link=document.createElement('a');
-                list_item_link.appendChild(fname);
-                list_item_link.download=name_splits(zipEntry.name);
-                list_item.appendChild(list_item_link);
-                myList.appendChild(list_item);
-                zip.file(relativePath).async("blob").then(function(data) {
-                    list_item_link.href=window.URL.createObjectURL(data);
-                    tempo[fname.nodeValue]=window.URL.createObjectURL(data);
-                })
+                else if(arr[arr.length-1]==="")
+                {
+                    temp["id"]=arr[arr.length-2];
+                    if(arr[arr.length-3]!=null)
+                        temp["parent"]=arr[arr.length-3]
+                    else
+                        temp["parent"]="#";
+                    temp["text"]=arr[arr.length-2];
+                    tempo[arr[arr.length-2]]="#";
+                }
+                else
+                {
+                    temp["id"]=arr[arr.length-1];
+                    temp["parent"]=arr[arr.length-2];
+                    temp["text"]=arr[arr.length-1];
+                    zip.file(relativePath).async("blob").then(function(data) {
+                        tempo[arr[arr.length-1]]=window.URL.createObjectURL(data);
+                    });
+                }
+
+                directory.push(temp);
             });
-            $('#container').jstree().on("select_node.jstree", function (e, data) { if(tempo[data.node.text]!="#"){let a = document.createElement('a');a.href=tempo[data.node.text];a.download=data.node.text;a.click(); }});
+
+            $("#container").jstree({
+                "core": {
+                "check_callback": true,
+                "data": directory
+                }
+            }).on('select_node.jstree', function(e, data) {
+            if(tempo[data.node.text]!="#")
+            {
+                let a = document.createElement('a');
+                a.href=tempo[data.node.text];
+                a.download=data.node.text;
+                a.click();
+            }
+            });
             da.addEventListener("click",function (evt) {
                 evt.preventDefault();
                 let keys = Object.keys(tempo); 
                 keys.forEach( function(key) {
-                    if(tempo[key]=="#")
+
+                    if(tempo[key]==="#")
                         return;
                     let a = document.createElement('a');
                     a.href=tempo[key];
